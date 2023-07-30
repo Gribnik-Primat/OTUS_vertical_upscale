@@ -1,0 +1,1 @@
+# OTUS_vertical_upscale
