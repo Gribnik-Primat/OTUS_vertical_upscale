@@ -10,6 +10,11 @@ set(SOURCES
     Command.h
     ThreadExecutor.cpp
     ThreadExecutor.h
+    State.h
+    NormalState.h
+    NormalState.cpp
+    MoveToState.cpp
+    MoveToState.h
 )
 
 # Add test files

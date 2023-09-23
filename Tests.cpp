@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <thread>
+#include "NormalState.h"
+#include "MoveToState.h"
 #include "ThreadExecutor.h"
 
 TEST(ThreadExecutorTest, SoftStop) {
@@ -29,3 +31,54 @@ TEST(ThreadExecutorTest, HardStop) {
     // Stopping the executor (hard stop)
     executor.stopHard();
 }
+
+TEST(NormalStateTest, HandleSoftStop) {
+    ThreadExecutor executor;
+    NormalState state(executor);
+
+    State* nextState = state.handleSoftStop();
+
+    EXPECT_TRUE(executor.isStopRequested());
+    EXPECT_EQ(nextState, &state); 
+}
+
+TEST(NormalStateTest, HandleHardStop) {
+    ThreadExecutor executor;
+    NormalState state(executor);
+
+    State* nextState = state.handleHardStop();
+
+    EXPECT_TRUE(executor.isStopRequested());
+    EXPECT_EQ(nextState, nullptr);
+}
+
+TEST(MoveToStateTest, HandleSoftStop) {
+    ThreadExecutor executor;
+    MoveToState state(executor);
+
+    State* nextState = state.handleSoftStop();
+
+    EXPECT_TRUE(executor.isStopRequested()); 
+    EXPECT_EQ(nextState, &state); 
+}
+
+TEST(MoveToStateTest, HandleHardStop) {
+    ThreadExecutor executor;
+    MoveToState state(executor);
+
+    State* nextState = state.handleHardStop();
+
+    EXPECT_TRUE(executor.isStopRequested());
+    EXPECT_EQ(nextState, nullptr); 
+}
+
+TEST(MoveToStateTest, HandleMoveToCommand) {
+    ThreadExecutor executor;
+    MoveToState state(executor);
+
+    State* nextState = state.handleMoveToCommand();
+    State* currentState = executor.getCurrentState(); // Store the current state
+
+    EXPECT_EQ(nextState, dynamic_cast<NormalState*>(currentState));
+}
+

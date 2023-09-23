@@ -1,44 +1,19 @@
 #include "ThreadExecutor.h"
-#include <optional>
+#include "State.h"
+#include "NormalState.h"
 
-ThreadExecutor::ThreadExecutor() {}
+ThreadExecutor::ThreadExecutor() : currentState_(new NormalState(*this)) {}
 
 void ThreadExecutor::start() {
     threads_.emplace_back(&ThreadExecutor::workerThread, this);
 }
 
 void ThreadExecutor::stopHard() {
-    {
-        std::unique_lock<std::mutex> lock(mutex_);
-        stopRequested_ = true;
-    }
-    cv_.notify_all();
-
-    for (std::thread& thread : threads_) {
-        if (thread.joinable()) {
-            thread.join();
-        }
-    }
-    threads_.clear();
+    currentState_ = currentState_->handleHardStop();
 }
 
 void ThreadExecutor::stopSoft() {
-    {
-        std::unique_lock<std::mutex> lock(mutex_);
-        stopWhenEmpty_ = true;
-        // If no commands are executing, stop immediately
-        if (!executing_) {
-            stopRequested_ = true;
-        }
-    }
-    cv_.notify_all();
-
-    for (std::thread& thread : threads_) {
-        if (thread.joinable()) {
-            thread.join();
-        }
-    }
-    threads_.clear();
+    currentState_ = currentState_->handleSoftStop();
 }
 
 void ThreadExecutor::addCommand(const Command& command) {
@@ -47,15 +22,27 @@ void ThreadExecutor::addCommand(const Command& command) {
     cv_.notify_one();
 }
 
+void ThreadExecutor::setStopRequested(bool stopRequested) {
+    stopRequested_ = stopRequested;
+}
+
+bool ThreadExecutor::isStopRequested() const {
+    return stopRequested_;
+}
+
+State* ThreadExecutor::getCurrentState() const {
+    return currentState_;
+}
+
 void ThreadExecutor::workerThread() {
     while (true) {
         std::optional<Command> command;
         {
             std::unique_lock<std::mutex> lock(mutex_);
-            cv_.wait(lock, [this] { return stopRequested_ || (!commandQueue_.empty() && stopWhenEmpty_); });
+            cv_.wait(lock, [this] { return stopRequested_ || !commandQueue_.empty(); });
 
-            if (stopRequested_ || (stopWhenEmpty_ && commandQueue_.empty())) {
-                return;
+            if (stopRequested_ && commandQueue_.empty()) {
+                break;
             }
 
             if (!commandQueue_.empty()) {
