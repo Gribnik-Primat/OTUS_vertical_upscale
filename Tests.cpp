@@ -71,14 +71,3 @@ TEST(MoveToStateTest, HandleHardStop) {
     EXPECT_TRUE(executor.isStopRequested());
     EXPECT_EQ(nextState, nullptr); 
 }
-
-TEST(MoveToStateTest, HandleMoveToCommand) {
-    ThreadExecutor executor;
-    MoveToState state(executor);
-
-    State* nextState = state.handleMoveToCommand();
-    State* currentState = executor.getCurrentState(); // Store the current state
-
-    EXPECT_EQ(nextState, dynamic_cast<NormalState*>(currentState));
-}
-

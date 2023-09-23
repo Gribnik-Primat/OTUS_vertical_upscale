@@ -10,10 +10,38 @@ void ThreadExecutor::start() {
 
 void ThreadExecutor::stopHard() {
     currentState_ = currentState_->handleHardStop();
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        stopRequested_ = true;
+    }
+    cv_.notify_all();
+
+    for (std::thread& thread : threads_) {
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+    threads_.clear();
 }
 
 void ThreadExecutor::stopSoft() {
     currentState_ = currentState_->handleSoftStop();
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        stopWhenEmpty_ = true;
+        // If no commands are executing, stop immediately
+        if (!executing_) {
+            stopRequested_ = true;
+        }
+    }
+    cv_.notify_all();
+
+    for (std::thread& thread : threads_) {
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+    threads_.clear();
 }
 
 void ThreadExecutor::addCommand(const Command& command) {
@@ -39,10 +67,10 @@ void ThreadExecutor::workerThread() {
         std::optional<Command> command;
         {
             std::unique_lock<std::mutex> lock(mutex_);
-            cv_.wait(lock, [this] { return stopRequested_ || !commandQueue_.empty(); });
+            cv_.wait(lock, [this] { return stopRequested_ || (!commandQueue_.empty() && stopWhenEmpty_); });
 
-            if (stopRequested_ && commandQueue_.empty()) {
-                break;
+            if (stopRequested_ || (stopWhenEmpty_ && commandQueue_.empty())) {
+                return;
             }
 
             if (!commandQueue_.empty()) {

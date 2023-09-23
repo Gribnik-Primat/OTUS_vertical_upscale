@@ -33,6 +33,7 @@ private:
     std::queue<Command> commandQueue_;
     std::vector<std::thread> threads_;
     bool stopRequested_ = false;
+    bool stopWhenEmpty_ = false;
     bool executing_ = false;
     std::mutex mutex_;
     std::condition_variable cv_;
